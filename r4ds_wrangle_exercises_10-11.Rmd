@@ -1,0 +1,71 @@
+---
+title: "R for Data Science - Wrangle Exercises"
+author: "Caio Costa"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+```
+
+## Exercise 10.5.1
+
+If you suspect an object is a tibble, just print it, and it shall tell you in the first line
+
+```{r iris}
+print(as_tibble(iris))
+```
+
+## Exercise 10.5.2
+
+```{r data_frame}
+df <- data.frame(abc = 1, xyz = "a")
+df$x #This will get all rows of column that 'looks like' x, which is xyz
+df[, "xyz"] #This will get all rows of column xyz, same result as the previous
+df[, c("abc", "xyz")] #This will get all rows of both abc and xyz columns
+```
+
+## Exercise 10.5.3
+
+Like this:
+
+```{r var}
+tb <- tibble(
+  'mpg' = 1:10,
+  'other' = 10:1
+)
+var <- 'mpg'
+tb[[var]]
+```
+
+## Exercise 10.5.4
+
+``` {r practice}
+annoying <- tibble(
+  `1` = 1:10,
+  `2` = `1` * 2 + rnorm(length(`1`))
+)
+print(annoying[[1]])
+ggplot(data = annoying) + geom_point(aes(x = `1`, y = `2`))
+annoying <- mutate(annoying, `3` = `2` / `1`)
+print(annoying)
+rename(annoying, 'One' = `1`, 'Two' = `2`, 'Three' = `3`)
+```
+## Exercise 10.5.5
+
+Converts atomic named list in tibble. Should use when, for any reason, you have an atomic named list.
+
+``` {r enframe}
+ages <- c(David = 34, Alice = 27, Robert = 19)
+enframe(ages)
+```
+
+## Exercise 10.5.6
+
+max_extra_cols
+
+``` {r max_extra_cols}
+options(max_extra_cols = 3)
+print(as_tibble(iris))
+```
