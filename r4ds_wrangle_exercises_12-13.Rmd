@@ -1,0 +1,310 @@
+---
+title: "R for Data Science - Wrangle Exercises"
+author: "Caio Costa"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(nycflights13)
+```
+
+## Exercise 12.2.1.1
+
+Table1 - Have data in 2 dimensions (country and year) and 2 measures (cases and population). Easy to associate measures to same country and year. Missing data would be represented as NA
+
+Table2 - Have data in 3 dimensions (country, year and type) and 1 measure (count). Cases and population are no longer in the same row, so associating them is a bit more tricky. Missing data would not be displayed as NA (as each row measures one thing, missing data = missing row)
+
+Table 3 - Horrendous table that have 2 dimensions (country and year), and 2 measures in a single column (rate), separated by a '/'. There is a special place in hell for people who store data like this
+
+Table 4 - Break down the measures population and cases in 2 different tables. Each row is a country, each column is an year, the intersection is the measure for that country and year. Nice way to visualize data, not so nice to manipulate it.
+
+## Exercise 12.2.1.2
+
+For table2:
+```{r table2}
+temp1<- filter(table2, type == 'cases') %>% mutate(cases = count) %>% select(-type,-count)
+temp2<- filter(table2, type == 'population') %>% mutate(population = count) %>% select(-type,-count)
+dplyr::inner_join(temp1,temp2, by = c('country','year')) %>% mutate(rate = cases/population*10000)
+```
+For table4L
+
+```{r table4}
+temp1 <- mutate(table4a, year = 1999, cases = `1999`) %>% select(country,year,cases) 
+temp2 <- mutate(table4a, year = 2000, cases = `2000`) %>% select(country,year,cases) 
+temp3 <- dplyr::union_all(temp1,temp2)
+temp4 <- mutate(table4b, year = 1999, population = `1999`) %>% select(country,year,population) 
+temp5 <- mutate(table4b, year = 2000, population = `2000`) %>% select(country,year,population) 
+temp6 <- dplyr::union_all(temp4,temp5)
+dplyr::inner_join(temp3,temp6, by = c('country', 'year')) %>% mutate(rate = cases/population*10000)
+```
+By the length of the statements, it is clear both are not easy to manipulate, but table 4 requires way more interactions. Plus the naming convention is not obvious (why table4a have cases and table4b population?)
+
+## Exercise 12.2.1.3
+
+We need to do pretty much what we did on the previous exercise
+```{r plotting}
+temp1<- filter(table2, type == 'cases') %>% mutate(cases = count) %>% select(-type,-count)
+temp2<- filter(table2, type == 'population') %>% mutate(population = count) %>% select(-type,-count)
+dplyr::inner_join(temp1,temp2, by = c('country','year')) %>% ggplot(aes(year,cases)) + geom_line(aes(group = country), colour = "grey50") + geom_point(aes(colour = country))
+```
+
+#Exercise 12.3.3.1
+
+First of all, why didn't you teach me that trick BEFORE I did the previous exercises. Not cool, man, not cool.
+
+Now back to the question. It converts the year to chr. Why? Well, you spread, the years became column names, and when you regathered, those column names became values. Apparently it does not keep track off the variable past life (nor it should), so a column name becomes a chr value. Setting convert=TRUE should fix that, since now you are telling it to convert ot whatever it thinks it should.
+
+Of course, it things it should be INT. If you really want it to be dbl, just mutate it and stop bothering me (yes, still mad at you)
+
+```{r symmetry}
+stocks <- tibble(
+  year   = c(2015, 2015, 2016, 2016),
+  half  = c(   1,    2,     1,    2),
+  return = c(1.88, 0.59, 0.92, 0.17)
+)
+stocks %>% 
+  spread(year, return) %>% 
+  gather("year", "return", `2015`:`2016`, convert = TRUE)
+```
+
+#Exercise 12.3.3.2
+
+Backticks, man. Never forget backticks when refering to column names that are integers. Or never name a column an integer. Just saying
+
+#Exercise 12.3.3.3
+
+Well, because mr Phillip Woods is both 45 and 50. You can either get rid of the duplicate, or create a new column such as measurement_date
+
+#Exercise 12.3.3.4
+
+It looks pretty tidy to me. I am not touching this until I know what the end use is. If it is to assess the percentage of population that is pregnant, I would flip it (Gender, pregnant, not_pregnant). If it is to assess the percentage of not preganant people that are women (why would I want to do that? I don't people, people are weird) I would leave as is.
+
+#Exercise 12.4.3.1
+
+It tells separate() what to do when shit happens. Shit happens when instead of having a neat column with X values in each row separated by X-1 separators, you have rows with less than X or more than X values (i.e., less or more than X-1 separators).
+When you have too many, extra tells separate() what to do. If drop, it just get the first X values and drop the rest. If merge, it gets the first X-1 values, and get the rest of the string as the Xth value
+When you have too few (say Y < X), fill gets in place. If right, it will populate the X-Y last with NA. If left, the X-Y first values will be NA
+
+#Exercise 12.4.3.2
+
+remove argument tells separate whether it should get rid of the original column. By default it is TRUE, meaning the original column gets dropped.
+You would want to keep the original column if you have plenty of space available, and would like to validate in the future. Or maybe you have scripts in place that refer to that column, and would not like to change them (because if it ain't broke, don't fix it)
+
+#Exercise 12.4.3.3
+
+extract() is more powerful (in a sense) than separate(). With extract you can be more specific of what the values look like, and can even set NA to values that do not behave as you expect. On the downside it uses regex, which is a pain in the ass unless you've done a lot of them and can define the world as a collection of regular expressions.
+
+#Exercise 12.5.1.1
+
+They are slightly different. spread() lets you choose a single value to replace NAs, while complete() lets you picj a value for each column to replace NAs.
+
+#Exercise 12.5.1.2
+
+It tells fill() if the missing value should be replaced by the previous or next value
+
+#Exercise 12.6.1.1
+
+At first look, it is very reasonable to remove NAs. NA stands for "not available", and in the tidy format a row represents an observation. If an observation is not available, there should not be a row for it.
+One thing that must be consider if NA actually contains information. While it should be very standard that NA means "I have no idea what the actual number is", it could actually represent a value. Not common, but think on this scenario, you control number of daily visits on a website. One day, there is a problem and the website is down the entire day. Therefore you cannot retrieve how many visits there were. On the other side, the server was down, so you are pretty positive the website had 0 visits. So is this an NA or a 0?
+Treating NA as 0 should only be done if you are positive they are the same thing, like the dummy example above. If you consider NA 0 in the tuberculosis dataset, you may be commiting a huge mistake. Not having data available tells nothing about the actual number of tuberculosis cases.
+Last, dealing with NAs depends on the end goal. Right now, I don't know what the end goal is, so it is hard to tell if removing NAs is reasonable or not if I don't know what we want to do with the dataset. If further on we decide to eliminate countries (i.e., all the country's entries) with NAs, leaving the NAs there would make things easier. If we are to train a model that does not do well with holes in the data, we may want to estimate the value of the NA (e.g., the average of immediate neighbors in year).
+I believe there is (or there should be) an entire course on how to deal with NAs
+
+#Exercise 12.6.1.2
+
+Shit breaks. Of course. As discussed earlier, separate() expects data to be neatly organized inside the column (same number of separators in each row). If we do not do the mutate(), that goes down the sink, and R cries in despair
+
+#Exercise 12.6.1.3
+
+Boom
+```{r country-and-isos}
+who1 <- who %>%
+  select(country,iso2,iso3)
+length(unique(who$country)) == nrow(unique(who1))
+```
+
+#Exercise 12.6.1.4
+
+```{r grouping}
+who %>%
+  gather(code, value, new_sp_m014:newrel_f65, na.rm = TRUE) %>% 
+  mutate(code = stringr::str_replace(code, "newrel", "new_rel")) %>%
+  separate(code, c("new", "var", "sexage")) %>% 
+  select(-new, -iso2, -iso3) %>% 
+  separate(sexage, c("sex", "age"), sep = 1) %>%
+  group_by(country,year,sex) %>%
+  summarize(cases=sum(value)) %>% #Up to this point we create the table
+  filter(cases > 100000) %>% #Now we get rid of poser countries that don't have enough tuberculosis to be presented in this chart and would compose a yarn of irrelevant lines
+  ggplot(aes(year,cases)) + geom_line(aes(group = paste(country,sex), color = paste(country,sex)))
+```
+
+#Exercise 13.2.1.1
+
+I would need to access the flights table, and join it to airports, so I can know where the origin and destination airports are. Then I would draw a line from origin airport coordinates to destiny airport coordinates.
+If I am interested in all the flights of a specific plane, I would join the planes table to flights, and keep the path above.
+If I am interested in all the flights of a specific airline, I would join the airlines table to flights, and follow the path above
+
+#Exercise 13.2.1.2
+
+The relationship is one:many, i.e., each row in weather may have more than one match on flights.
+The key would be the origin, and that is the "problem", as there one forecast for each hour for each airport.
+
+#Exercise 13.2.1.3
+
+You could join weather and flights on flights dest. That way you could know the forecast of the destination airport at the moment of departure (if you join on year, month, day, hour). With some calculation, we can get the hour of estimated arrival, and get the weather forecast for the destination on arrival.
+
+#Exercise 13.2.1.4
+
+Well, if we just want to flag a date as special, I would have a table called "special" with the columns year, month, day, special, where special column would hold the value True. Than I would connect it to flight via the concatenation of year, month and day. Now I can check if a specific flight is scheduled on a special date
+
+#Exercise 13.3.1.1
+
+```{r surrogate}
+flights %>%
+  mutate(key = row_number())
+```
+
+Exercise 13.3.1.2
+
+```{r keys}
+as_tibble(Lahman::Batting) %>% count(playerID,yearID,stint,teamID) %>% filter(n > 1)
+as_tibble(babynames::babynames) %>% count(name,sex,year) %>% filter(nn > 1)
+as_tibble(nasaweather::atmos) %>% count(lat,long,year,month) %>% filter(n > 1)
+as_tibble(fueleconomy::vehicles) %>% count(id) %>% filter(n > 1) #at last a decent table with id on it
+as_tibble(ggplot2::diamonds) %>% count(carat, cut, color, clarity, depth, table, x, y, z, price) %>% filter(n > 1) #no key for this horrendous table
+```
+
+#Exercise 13.3.1.3
+
+Don't feel like drawing
+
+#Exercise 13.4.6.1
+
+Calculating delay as sum of dep_delay and arr_delay
+```{r maps}
+airports %>%
+  inner_join(flights %>% filter(!is.na(arr_delay) & !is.na(dep_delay)) %>% group_by(dest) %>% summarize(delay = mean(arr_delay + dep_delay)), c("faa" = "dest")) %>%
+  ggplot(aes(lon, lat)) +
+    borders("state") +
+    geom_point(aes(color = delay)) +
+    coord_quickmap()
+```
+
+#Exercise 13.4.6.2
+
+```{r adding_lat_lon}
+flights %>%
+  inner_join(airports %>% select(faa,lat,lon), by = c("origin" = "faa")) %>%
+  inner_join(airports %>% select(faa,lat,lon), by = c("dest" = "faa"), suffix = c('.origin','.dest'))
+```
+
+#Exercise 13.4.6.3
+
+No, very low correlation
+```{r age_delay}
+data <- planes %>%
+  mutate(age = 2017 - year) %>%
+  select(tailnum,age) %>%
+  filter(!is.na(age)) %>%
+  inner_join(flights %>% filter(!is.na(arr_delay) & !is.na(dep_delay)) %>% group_by(tailnum) %>% summarize(delay = mean(arr_delay + dep_delay)), c("tailnum"))
+cor(data$age,data$delay)
+```
+
+#Exercise 13.4.6.4
+
+For this, considered just dep_delay, because weather in the origin airport should influence that only
+
+```{r weather}
+data <- flights %>%
+  filter(!is.na(dep_delay)) %>%
+  group_by(year,month,day,hour,origin) %>%
+  summarize(delay = mean(dep_delay)) %>%
+  inner_join(weather, by = c("year","month","day","hour","origin")) %>%
+  ungroup() %>%
+  select(-year,-month,-day,-hour,-origin,-time_hour)
+cor(data, use = "complete.obs")
+```
+
+So, not much is correlated. temp, dewp seem to have a positive non-random (lazy to test, but 0.2 though not strong, is hardly random) effect, pressure has a negative non-random effect.
+
+#Exercise 13.4.6.5
+
+Apparently we had some serious delays.
+
+```{r maps_june_13}
+airports %>%
+  inner_join(flights %>% filter(!is.na(arr_delay) & !is.na(dep_delay) & year == 2013 & month == 6 & day == 13) %>% group_by(dest) %>% summarize(delay = mean(arr_delay + dep_delay)), c("faa" = "dest")) %>%
+  ggplot(aes(lon, lat)) +
+    borders("state") +
+    geom_point(aes(color = delay)) +
+    coord_quickmap()
+```
+
+According to Wikipedia, 2 derechos occurred in June 12-13 2013. What a derecho is? I don't know. It means both "right" and "straight" in Spanish.
+
+#Exercise 13.5.1.1
+
+Most of them are Endeavor, United or US Airways. Why? I don't know
+
+```{r missing_tailnum}
+flights %>%
+  filter(is.na(tailnum)) %>%
+  count(carrier) %>%
+  arrange(desc(n))
+```
+
+#Exercise 13.5.1.2
+
+How do I know it is right? I have faith
+```{r over_100}
+flights %>%
+  semi_join(flights %>%
+              count(tailnum) %>%
+              filter(n > 100),
+            by = c("tailnum"))
+```
+
+#Exercise 13.5.1.3
+
+Why didn't I include year? Because I am lazy
+```{r common_models}
+fueleconomy::vehicles %>%
+  semi_join(fueleconomy::common, by = c("make","model"))
+```
+
+#Exercise 13.5.1.4
+
+Too tired to do this
+
+```{r worst48}
+flights %>%
+  group_by(year,month,day,hour,origin) %>%
+  summarize(delays = sum(dep_delay + arr_delay)) %>%
+  arrange(desc(delays)) %>%
+  ungroup() %>%
+  top_n(48,delays) %>%
+  select(year,month,day,hour,origin,delays) %>%
+  inner_join(weather, by = c("year","month","day","hour","origin"))
+```
+
+#Exercise 13.5.1.5
+
+The first gives me information for flights which destination is not in our airport catalog. The second gives me information on airports that had no flights coming from New York
+
+#Exercise 13.5.1.6
+
+Yes, we have a case of plane promiscuity. It is probably one airline buying an old plane from other airline
+```{r plane_promiscuity}
+planes %>%
+  select(tailnum) %>%
+  inner_join(flights %>%
+               count(tailnum,carrier),
+             by = c("tailnum")) %>%
+  count(tailnum) %>%
+  filter(nn > 1) %>%
+  inner_join(flights %>%
+               count(tailnum,carrier),
+             by = c("tailnum"))
+```
