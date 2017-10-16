@@ -1,0 +1,298 @@
+---
+title: "R for Data Science - Wrangle Exercises"
+author: "Caio Costa"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(stringr)
+library(forcats)
+```
+
+#Exercise 14.2.5.1
+In code that doesn’t use stringr, you’ll often see paste() and paste0(). What’s the difference between the two functions? What stringr function are they equivalent to? How do the functions differ in their handling of NA?
+
+Well, paste0 is nothing more than a paste with sep = ''. But because it just concatenate strings with no separator, it is runs faster. How much faster? I don't know.
+They are equivalent to str_c. Except str_c returns NA whenever there is an NA as an argument, while paste and paste0 transfrom NA in "NA".
+
+```{r str_c}
+paste0("My favorite DataScience person is: ", NA)
+str_c("My favorite DataScience person is: ", NA)
+```
+
+#Exercise 14.2.5.2
+
+In your own words, describe the difference between the sep and collapse arguments to str_c()
+
+They have the same goal. But sep is used between strings passed as arguments to str_c, while collapse is used between strings inside a list passed as argument. LikeL
+
+```{r sep_collapse}
+str_c(c('This','is','separated','by','spaces'), sep = '...', collapse = ' ')
+str_c('This','is','separated','by','Ellipsis', sep = '...', collapse = ' ')
+```
+
+#Exercise 14.2.5.3
+
+Use str_length() and str_sub() to extract the middle character from a string. What will you do if the string has an even number of characters?
+
+I will cry. No. I will get the one to the left. Why? Because I'm lazy and don't fully understand the use of finding the middle character of a string
+
+```{r middle}
+str_sub('abcde',str_length('abcde')/2,str_length('abcde')/2)
+str_sub('abcdef',str_length('abcdef')/2,str_length('abcdef')/2)
+```
+
+#Exercise 14.2.5.4
+
+What does str_wrap() do? When might you want to use it?
+
+It will format a string in paragraphs of fixed width (well, tentatively fixed width, it won't break words apart). It may be used to get a better readable output of a string that was stored a single line.
+
+#Exercise 14.2.5.5
+
+What does str_trim() do? What’s the opposite of str_trim()?
+
+str_trim gets rid of trailing and leading whitespace. str_pad does the opposite (add leading and trailing whitespace). The first can be used to improve readability of a string, the second can be used to enforce a collection of strings to have the same length.
+
+#Exercise 14.2.5.6
+
+Write a function that turns (e.g.) a vector c("a", "b", "c") into the string a, b, and c. Think carefully about what it should do if given a vector of length 0, 1, or 2
+
+```{r conversion}
+conversion <- function(vector,...){
+  if(typeof(vector) != typeof(c("a"))){
+    return("Hey, you didn't give me a list of chars. Follow the rules")
+  }
+  len <- length(vector)
+  if(len == 1){
+    return(vector[1])
+  }
+  result <- ""
+  for(i in 2:len-1){
+    result <- str_c(result,vector[i],", ")
+  }
+  return(str_c(result, "and ",vector[len]))
+}
+conversion(c("a","b","c"))
+conversion(c(1,2,3))
+conversion(c("a",1,"c")) # I guess R coerce to a common type
+conversion("a","b","c") #Not how it works, but got lazy to give custom message
+```
+
+#Exercise 14.3.1.1
+
+Explain why each of these strings don’t match a \: "\", "\\", "\\\".
+
+Because R is complicated. So they decided to use \ as a way to use a regex character as it is literal character (not the regex itself). Because \ is a regex, you need \\ to get a single \. Problem is, \ is a escape string, "\\" will actually error, since it is followed by nothing. Just adding a third one "\\\" also does not work, because now the last \ is escaping " behavior. It means "\\\" is actually an unfinished string that starts with \" and is yet to be finished. "\\"" for instance, finishes that string, and is \".
+So to actuall get a \ as a pattern, you need the forth one \, the first 2 says "hey, here is a \", and R respond "Okay, what is the regex you want to escape", and the last 2 says "escape this backslash". And then you get what you need
+
+All that being said, pray you won't need to find a backslash. If you do, just keep adding backslashs until it works
+
+#Exercise 14.4.2.1
+
+For each of the following challenges, try solving it by using both a single regular expression, and a combination of multiple str_detect() calls.
+
+Let the fun begin
+
+Find all words that start or end with x.
+```{r start_end_x}
+start_end_x <- function(string){
+  answer <- c()
+  pattern1 <- '^[xX]'
+  pattern2 <- '[xX]$'
+  words <- str_split(string," ")
+  for(word in words){
+    string_check <- str_detect(word,pattern1) | str_detect(word,pattern2)
+    answer <- string_check
+  }
+  return(words[[1]][which(answer)])
+}
+start_end_x("Xanax Xerox xylophone sax fax text mixer all words have x")
+```
+
+Find all words that start with a vowel and end with a consonant.
+
+```{r start_end_vowel}
+start_end_vowel <- function(string){
+  answer <- c()
+  pattern1 <- '^[aeiouAEIOU]'
+  pattern2 <- '[^aeiouAEIOU]$'
+  words <- str_split(string," ")
+  for(word in words){
+    string_check <- str_detect(word,pattern1) & str_detect(word,pattern2)
+    answer <- string_check
+  }
+  return(words[[1]][which(answer)])
+}
+start_end_vowel("Apple apples IdioT ostricH are nice words and Y is not a vowel")
+```
+
+Are there any words that contain at least one of each different vowel?
+
+```{r contain_vowels}
+contain_vowels <- function(string){
+  answer <- FALSE
+  pattern1 <- '[aA]'
+  pattern2 <- '[eE]'
+  pattern3 <- '[iI]'
+  pattern4 <- '[oO]'
+  pattern5 <- '[uU]'
+  words <- str_split(string," ")[[1]]
+  for(word in words){
+    l <- str_length(word)
+    string_check <- str_detect(word,pattern1) & str_detect(word,pattern2) & str_detect(word,pattern3) & str_detect(word,pattern4) & str_detect(word,pattern5)
+    answer <- answer | string_check
+  }
+  return(answer)
+}
+contain_vowels("Are there any words that have all the vowels")
+contain_vowels("Unequivocally, there is")
+```
+
+#Exercise 14.4.2.2
+
+What word has the highest number of vowels? What word has the highest proportion of vowels? (Hint: what is the denominator?)
+
+```{r vowels}
+count_vowels <- function(word){
+  answer <- FALSE
+  pattern1 <- '[aA]'
+  pattern2 <- '[eE]'
+  pattern3 <- '[iI]'
+  pattern4 <- '[oO]'
+  pattern5 <- '[uU]'
+  return(str_count(word,pattern1) + str_count(word,pattern2) + str_count(word,pattern3) + str_count(word,pattern4) + str_count(word,pattern5))
+}
+
+highest_vowels <- function(string){
+  words <- str_split(string," ")
+  count <- c()
+  for(word in words){
+    count <- count_vowels(word)
+  }
+  return(words[[1]][which(count == max(count))])
+}
+highest_vowels("So many words, but which has the most number of vowels?")
+
+highest_vowels_proportion <- function(string){
+  words <- str_split(string," ")
+  prop <- c()
+  for(word in words){
+    count <- count_vowels(word)/str_length(word)
+  }
+  return(words[[1]][which(count == max(count))])
+}
+highest_vowels_proportion("So many words, but which has the most number of vowels?")
+```
+
+#Exercise 14.4.6.1
+
+Split up a string like "apples, pears, and bananas" into individual components.
+
+```{r splitting_fruits}
+str_split("apples, pears, and bananas",boundary("word"))[[1]][which(str_split("apples, pears, and bananas",boundary("word"))[[1]] != 'and')]
+```
+
+#Exercise 14.4.6.1.2
+
+Why is it better to split up by boundary("word") than " "?
+
+boundary("word") get rid of puntuactions as well
+
+#Exercise 14.4.6.1.3
+
+What does splitting with an empty string ("") do? Experiment, and then read the documentation.
+
+It will break everything char by char
+
+#Exercise 15.4.1.1
+
+There are some suspiciously high numbers in tvhours. Is the mean a good summary?
+
+Almost half of the values are NAs. But I guess that was not the question. We can see a long tail that will "distort" the mean. The median is a better representation of the "average" household TV consumption.
+
+```{R tvhours}
+gss_cat %>% ggplot(aes(tvhours)) + geom_bar()
+gss_cat %>% filter(is.na(tvhours)) %>% count(tvhours) / gss_cat %>% nrow
+mean(gss_cat$tvhours, na.rm = TRUE)
+median(gss_cat$tvhours, na.rm = TRUE)
+```
+
+#Exercise 15.4.1.2
+
+For each factor in gss_cat identify whether the order of the levels is arbitrary or principled.
+
+Year - Yes
+Marital - No
+Age - Yes
+Race - No
+Rincome - Yes
+Partyid - No
+Relig - No
+Denom - No
+Tvhours - Yes
+
+Source - My intuition on how data should be displayed
+
+#Exercise 15.4.1.3
+
+Why did moving “Not applicable” to the front of the levels move it to the bottom of the plot?
+
+Because R has a funny definition of what front is?
+
+#Exercise 15.5.1.1
+
+How have the proportions of people identifying as Democrat, Republican, and Independent changed over time?
+
+It looks like a mess, even taking out No answer, don't know, other party. Despite wild movements in between, the 2014 picture looks pretty much the same as the 2000
+
+```{R relig_over_time}
+gss_cat %>%
+  group_by(year,partyid) %>%
+  summarize( n = n()) %>%
+  inner_join( gss_cat %>% count(year), by = c("year"), suffix = c(".group",".total")) %>%
+  mutate(proportion = n.group/n.total) %>%
+  filter( !(partyid %in% c("No answer", "Don't know", "Other party"))) %>%
+  ggplot(aes(year,proportion)) +
+  geom_line(aes(color = partyid))
+```
+Doing some grouping we can see a better trend of rise in independents, and decline on republicans. Democrats are stable
+```{R relig_over_time_v2}
+gss_cat %>%
+  mutate(partyid = fct_recode(partyid,
+                              "Republican" = "Strong republican",
+                              "Republican" = "Not str republican",
+                              "Independent" = "Ind,near rep",
+                              "Independent" = "Ind,near dem",
+                              "Independent" = "Independent",
+                              "Democrat" = "Strong democrat",
+                              "Democrat" = "Not str democrat",
+                              "Other" = "No answer",
+                              "Other" = "Don't know",
+                              "Other" = "Other party")) %>%
+  group_by(year,partyid) %>%
+  summarize( n = n()) %>%
+  inner_join( gss_cat %>% count(year), by = c("year"), suffix = c(".group",".total")) %>%
+  mutate(proportion = n.group/n.total) %>%
+  filter(partyid != "Other") %>%
+  ggplot(aes(year,proportion)) +
+  geom_line(aes(color = partyid))
+```
+
+#Exercise 15.5.1.2
+
+How could you collapse rincome into a small set of categories?
+
+Using fct_collapse, instead of recode as I did above, that was a poor idea (that worked at least). As for the levels, I would combine the "No answer", "Don't know" and "Refused", also combine the bracket 5000-9999 and Less than 5000, so all the brackets have the same range (except for 25000 and more).
+
+```{R collapsing_rincome}
+gss_cat %>%
+  mutate(rincome = fct_collapse(rincome,
+                                "other" = c("No answer","Don't know","Refused","Not applicable"),
+                                "$5000 to 9999" = c("$5000 to 5999","$6000 to 6999","$7000 to 7999","$8000 to 9999"),
+                                "Less than $5000" = c("$4000 to 4999","$3000 to 3999","$1000 to 2999", "Lt $1000"))) %>%
+  count(rincome)
+```
+This gives us a better sense of income distribution. Also, we should be breaking the 25k+ in more levels
