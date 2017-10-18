@@ -1,0 +1,75 @@
+---
+title: "Coursera Getting and Cleaning Data Final Project"
+author: "Caio Costa"
+date: "10/18/2017"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+```
+
+Let's start by reading the tables
+
+```{r reading}
+#Reading stuff, fixed width file, 16 characters, 561 features
+x_train <- as_tibble(read.fwf("train/X_train.txt", widths = rep(c(16),561)))
+x_test <- as_tibble(read.fwf("test/X_test.txt", widths = rep(c(16),561)))
+# Single column file, no headers
+y_train <- as_tibble(read.csv("train/Y_train.txt", header = FALSE))
+y_test <- as_tibble(read.csv("test/Y_test.txt",header = FALSE))
+#Reading the subject, will need those in the final step. Believe me
+subject_train <- as_tibble(read.csv("train/subject_train.txt",header = FALSE))
+subject_test <- as_tibble(read.csv("test/subject_test.txt",header = FALSE))
+#Reading the feature names
+labels <- read.csv("features.txt",header = FALSE, sep = " ")
+# Labeling the features
+names(x_train) <- labels$V2
+names(x_test) <- labels$V2
+names(y_train) <- c("activity_code")
+names(y_test) <- c("activity_code")
+names(subject_train) <- c("subject")
+names(subject_test) <- c("subject")
+#Gluing stuff together
+train <-bind_cols(x_train,y_train,subject_train)
+test <- bind_cols(x_test,y_test,subject_test)
+#Just leaving a marker in case I need in the feature
+train <- mutate(train, type = "train")
+test <- mutate(test, type = "test")
+#Gluing some more
+data <- bind_rows(train,test)
+#Voila
+print(data)
+```
+
+Now let's extract those mean fields (pun intended)
+
+```{R slicing}
+#Slicing just means and std (and activity code and type and subject)
+data2 <- data %>%
+  select(ends_with("mean()"), ends_with("std()"), `activity_code`, type, subject)
+print(data2)
+```
+
+Now let's read that activity_labels file and figure out what dat code means
+
+```{R activities}
+#Reading activities descriptions and joining to data2
+activities <- read.csv("activity_labels.txt",header = FALSE, sep = " ")
+names(activities) <- c("activity_code","activity_description")
+data3 <- inner_join(data2,activities,by = c("activity_code"))
+print(select(data3,activity_code,activity_description))
+```
+
+I am pretty comfortable with my variable names right now. Does anyone get to this point without naming them? 
+
+Last step. Second data set? I am already in the count of 4. But okay. Let's average those by activity and subject.
+
+```{R grouping}
+data4 <- data3 %>%
+  select(-type, -activity_code) %>%
+  group_by(subject,activity_description) %>%
+  summarize_all(funs(mean))
+print(data4)
+```
