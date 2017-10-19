@@ -1,0 +1,232 @@
+---
+title: "R for Data Science - Wrangle Exercises"
+author: "Caio Costa"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(nycflights13)
+library(lubridate)
+make_datetime_100 <- function(year, month, day, time) {
+  make_datetime(year, month, day, time %/% 100, time %% 100)
+}
+flights_dt <- flights %>% 
+  filter(!is.na(dep_time), !is.na(arr_time)) %>% 
+  mutate(
+    dep_time = make_datetime_100(year, month, day, dep_time),
+    arr_time = make_datetime_100(year, month, day, arr_time),
+    sched_dep_time = make_datetime_100(year, month, day, sched_dep_time),
+    sched_arr_time = make_datetime_100(year, month, day, sched_arr_time)
+  ) %>% 
+  select(origin, dest, ends_with("delay"), ends_with("time"))
+```
+
+#Exercise 16.2.4.1
+
+What happens if you parse a string that contains invalid dates?
+
+Shit happens. It will return NA, as it cannot figure out what the date it is. Because "bananas" is not a date. But also, it would not like ambiguous data, like "202011" instead of "2020-1-1". "201011" it will not understand as "2010-1-1", but as "20-10-11" instead
+
+```{r shit_happens}
+ymd(c("2010-10-10","bananas","2020-1-1", "202011","201011"))
+```
+
+#Exercise 16.2.4.2
+
+What does the tzone argument to today() do? Why is it important?
+
+tzone, as the name suggests, tells the function which timezone you are talking about. If you want the date on LA, and you are sitting in New York, you should tell the function that is what you want.
+It is important because:
+1- It allows you to get time and date in different locations
+2- It allows you to compare time and date in different locations
+
+For a list of timezones, call olson_time_zones()
+
+```{r tzone}
+today(tzone = "Asia/Tokyo")
+today(tzone = "America/Los_Angeles")
+```
+
+#Exercise 16.2.4.3
+
+Use the appropriate lubridate function to parse each of the following dates:
+
+```{r lubridating}
+d1 <- "January 1, 2010"
+d2 <- "2015-Mar-07"
+d3 <- "06-Jun-2017"
+d4 <- c("August 19 (2015)", "July 1 (2015)")
+d5 <- "12/30/14" # Dec 30, 2014
+
+mdy(d1)
+ymd(d2)
+dmy(d3)
+mdy(d4)
+mdy(d5)
+```
+
+#Exercise 16.3.4.1
+
+How does the distribution of flight times within a day change over the course of the year?
+
+Good question. Let's do by quarter, because 4 charts is easier to see than 365 charts
+
+```{R distribution}
+flights_dt %>%
+  mutate(dep_hour = update(dep_time, yday = 1, minutes = 0, seconds = 0), quarter = quarter(dep_time), quarter = as.factor(quarter)) %>%
+  group_by(dep_hour,quarter) %>%
+  summarize(count = n()) %>%
+  ggplot(aes(x = dep_hour, y = count, colour = quarter)) +
+  geom_line()
+```
+
+First quarter seems to have less flights than other quarters, specially at 7am, and noon-1pm. All the other times seem the same across quarters. Will not dive into months, because I am lazy
+
+#Exercise 16.3.4.2
+
+Compare dep_time, sched_dep_time and dep_delay. Are they consistent? Explain your findings.
+
+No, apparently it messes up when the dep_time is actually in the next day (says it departed on the previous day). 1,205 rows are off by 1440 minutes, which is 1 day
+
+```{R consistency}
+flights_dt %>% 
+  select(dep_time, sched_dep_time, dep_delay) %>%
+  mutate(diff = dep_time - sched_dep_time, wrong = dep_delay - diff/60) %>%
+  filter(wrong != 0)
+```
+
+#Exercise 16.3.4.3
+
+Compare air_time with the duration between the departure and arrival. Explain your findings. (Hint: consider the location of the airport.)
+
+Air time seems to be smaller than the dep_time to arr_time difference (when timezones are considered, which I didn't, but have a feeling). This may be due dep_time is set when the plane leaves the terminal, and arr_time when it reaches the terminal, i.e., includes taxing time.
+
+```{R airtime}
+flights_dt %>%
+  mutate(air_time2 = arr_time - dep_time, diff = air_time - air_time2) %>%
+  select(origin,dest,dep_time,arr_time,air_time,air_time2,diff)
+```
+
+#Exercise 16.3.4.4
+
+How does the average delay time change over the course of a day? Should you use dep_time or sched_dep_time? Why?
+
+Depends on the end use. If I am scheduling a flight, I'd like to know delays by schedule time. If I am an airport authority and want to track how bad situation is, I would probably track the delay based on actual departure time, so I can do things like "last hour, delays were x on average". If you do schedule time, the last statement makes no sense (the planes that actually departed in the last hour and were scheduled in the last hour will naturally have small delay)
+
+Using dep_time, we see that really late departures translate in big delays, which makes sense. Not many flights are schedule to depart at 1am, so if a plane departure at 1am, odds are it is late
+```{r delays}
+flights_dt %>%
+  mutate(dep_hour = update(dep_time, yday = 1, minutes = 0, seconds = 0)) %>%
+  group_by(dep_hour) %>%
+  summarize(avg_delay = mean(dep_delay)) %>%
+  ggplot(aes(x = dep_hour, y = avg_delay)) +
+  geom_line()
+```
+
+When we use sched_dep_time, the obvious shows up, early flights get less delayed than late flights. Snowball effects explain it. This chart could easily be time retrieval time of queries ran in our SQL Servers
+```{r delays2}
+flights_dt %>%
+  mutate(dep_hour = update(sched_dep_time, yday = 1, minutes = 0, seconds = 0)) %>%
+  group_by(dep_hour) %>%
+  summarize(avg_delay = mean(dep_delay)) %>%
+  ggplot(aes(x = dep_hour, y = avg_delay)) +
+  geom_line()
+```
+
+#Exercise 16.3.4.5
+
+On what day of the week should you leave if you want to minimise the chance of a delay?
+
+Not surprisingly on Saturday. Thursday is the consultants go home day. Friday is the weekend travel day. Monday is the return home day + consultants go work day. Tuesday and Wednesday is the people who can afford not to travel on the other week days. No one travels on Saturday. Saturday is for fun, not for being stuck in a tiny seat in a plane
+
+```{r avoid_delay}
+flights_dt %>%
+  mutate(weekday = wday(sched_dep_time)) %>%
+  group_by(weekday) %>%
+  summarize(avg_delay = mean(dep_delay)) %>%
+  ggplot(aes(x = weekday, y = avg_delay)) +
+  geom_line()
+```
+
+# Exercise 16.3.4.6
+
+What makes the distribution of diamonds$carat and flights$sched_dep_time similar?
+
+Are they similar? They don't looks similar to me. diamonds$carat skews left, while flights$sched_dep_time looks more bimodal.
+
+```{R diamonds_flights}
+flights_dt %>% 
+  mutate(dep_hour = update(sched_dep_time, yday = 1)) %>% 
+  ggplot(aes(dep_hour)) +
+    geom_freqpoly(binwidth = 1200)
+
+diamonds %>% 
+  ggplot(aes(carat)) +
+    geom_freqpoly(binwidth = 0.1)
+```
+
+# Exercise 16.3.4.7
+
+Confirm my hypothesis that the increased number of departures of flights in minutes 20-30 and 50-60 are caused by scheduled flights that leave early. Hint: create a binary variable that tells you whether or not a flight was delayed. (as per Allie suggestion of making this question reasonable)
+
+Let's break down those
+
+```{r weird_causation}
+flights_dt %>%
+  mutate(dep_minute = minute(dep_time), dep_minute_zone = dep_minute %/% 10, early = dep_time < sched_dep_time) %>%
+  group_by(dep_minute_zone,early) %>%
+  summarize(count = n()) %>%
+  ggplot(aes(x = dep_minute_zone, y = count)) +
+  geom_line(aes(color = early))
+```
+
+Wow! Your hypothesis was true. Good call.
+
+#Exercise 16.4.5.1
+
+Why is there months() but no dmonths()?
+
+Because months are a mess. Months may have 30, 31, 28 or 29 days. And unlike leap years that only occur every four years (skipping every hundered, but repeating every 400), month duration change almost every month (Jul-Aug, Dec-Jan being the exceptions).
+
+That is why we should change this ridiculously hard system, whose sole purpose is to make us confused whether 31 of a month exists or not, to a system that every month have 28 days, a year have 13 months, and we celebrate new year's eve on the day left (and make it double celebration on leap years). Then we can have a dmonths()
+
+#Exercise 16.4.5.2
+
+Explain days(overnight * 1) to someone who has just started learning R. How does it work?
+
+Suppose your table has information of start time, end time and the day of an activity (such as a flight). Now, if the start time is lesser than the end time, all is good. But if the opposite happens, it must mean that the activity went overnight, so the end time actually refers to the next day. But because whoever created the table is lazy as f***, you have only one date field, that refers to the start time. So you better create a new field, end date, and make sure it has the right date.
+If you first create a variable called "overnight" and attributes to it the value "start_time > end_time", it will be true when the activity went overnight. When you do days(overnight*1), it will be 1 Day when the activty went overnight, and 0 Day when not. So when you add that to Start_date, you will get the right end_date.
+
+#Exercise 16.4.5.3
+
+Create a vector of dates giving the first day of every month in 2015. Create a vector of dates giving the first day of every month in the current year.
+
+```{r days}
+ymd("2015-1-1") + months(0:11)
+update(today(),months = 1, days = 1) + months(0:11)
+```
+
+#Exercise 16.4.5.4
+
+Write a function that given your birthday (as a date), returns how old you are in years.
+
+Hey, that is kind of personal
+
+```{r whats_my_age_again}
+age <- function(birthday){
+  return(paste("OMG, you're so old! Like",as.duration(today()-birthday)))
+}
+age(ymd('1988-08-21'))
+```
+
+#Exercise 16.4.5.5
+
+Why can’t (today() %--% (today() + years(1)) / months(1) work?
+
+Because it is missing and ending ')'?
+
+```{r close_those_parentesis}
+(today() %--% (today() + years(1))) / months(1)
+```
