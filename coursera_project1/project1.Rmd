@@ -1,0 +1,234 @@
+---
+title: "Course project 1"
+author: "Caio Costa"
+date: "10/27/2017"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Loading and fixing data
+
+Let's take a glimpse of the data, making sure it is fine
+
+```{r gilmpse}
+data <- read.csv("household_power_consumption.txt", sep = ';', stringsAsFactors = FALSE) #hoped this would automatically finds the right type, but it defaulted to <chr>
+head(data)
+```
+
+Everything looks good from here. Except it decided all values are <chr>. Let's fix that
+
+```{r converting}
+data$Datetime <- as.POSIXct(strptime(paste(data$Date,data$Time), format = '%d/%m/%Y %H:%M:%S')) #Need to convert to POSIXct, because strptime output is POSIXlt, which is a list and don't do well on a dataframe
+
+data$Global_active_power <- as.numeric(data$Global_active_power)
+data$Global_reactive_power <- as.numeric(data$Global_reactive_power)
+data$Voltage <- as.numeric(data$Voltage)
+data$Global_intensity <- as.numeric(data$Global_intensity)
+data$Sub_metering_1 <- as.numeric(data$Sub_metering_1)
+data$Sub_metering_2 <- as.numeric(data$Sub_metering_2)
+data$Sub_metering_3 <- as.numeric(data$Sub_metering_3)
+head(data)
+```
+
+Way better!
+
+Now let's just narrow down to the dates in question
+
+```{r filtering}
+data <- subset(data, Datetime  >= '2007-02-01' & Datetime < '2007-02-03')
+#Just to make sure
+c(min(data$Datetime), max(data$Datetime))
+```
+
+Awesome, seems like we filtered just the data we need!
+
+# First plot
+
+First plot looks like a histogram. It seems to show how many times the Global Active Power was in a certain range.
+
+```{R plot1}
+hist(data$Global_active_power, 
+     col = "red", 
+     main = "Global Active Power", 
+     xlab = "Global Active Power (kilowatts)")
+```
+
+This is awesome, that plot looks like what the exercise asked. Let's save it on a png
+
+```{R save_plot1}
+png(filename = 'plot1.png', width = 480, height = 480, bg = NA) #bg = NA gives us the nice png proeperty of transparent background
+hist(data$Global_active_power, 
+     col = "red", 
+     main = "Global Active Power", 
+     xlab = "Global Active Power (kilowatts)")
+dev.off()
+```
+
+# Second plot
+
+Hmm, this seems to be just a minute by minute line of Global Active Power. Let's do this!
+
+```{R plot2}
+plot(x = data$Datetime, 
+     y = data$Global_active_power, 
+     type = 'l', #we want lines, not dots
+     ylab = "Global Active Power (kilowatts)",
+     xlab = "")
+```
+
+YES! I knew all that work of setting the column types would yield good results! Look how easy and beautiful plotting that was!
+
+Now saving to a png file
+
+```{R save_plot2}
+png(filename = 'plot2.png', width = 480, height = 480, bg = NA)
+plot(x = data$Datetime, 
+     y = data$Global_active_power, 
+     type = 'l', 
+     ylab = "Global Active Power (kilowatts)",
+     xlab = "")
+dev.off()
+```
+
+# Third plot
+
+Getting fancy, we have legends now that tells us what we are plotting. Which also means we have to plot 3 things at the same time! Okay we can do this
+
+```{R plot3}
+plot(x = data$Datetime, 
+     y = data$Sub_metering_1, 
+     type = "l",
+     col = "black",
+     xlab = "",
+     ylab = "Energy sub metering")
+lines(x = data$Datetime, 
+     y = data$Sub_metering_2, 
+     col = "red")
+lines(x = data$Datetime, 
+     y = data$Sub_metering_3, 
+     col = "blue")
+legend("topright", 
+       legend = c("Sub_metering_1","Sub_metering_2","Sub_metering_3"),
+       lwd = c(2,2), #because we want lines on the legend
+       col =c("black","red","blue"), #and we want them in the right color
+       bty = "n") #bty = "n" gets rid of the legend box borders
+```
+
+Woohooo it works!
+
+Just need to save it.
+
+```{R save_plot3}
+png(filename = 'plot3.png', width = 480, height = 480, bg = NA)
+plot(x = data$Datetime, 
+     y = data$Sub_metering_1, 
+     type = "l",
+     col = "black",
+     xlab = "",
+     ylab = "Energy sub metering")
+lines(x = data$Datetime, 
+     y = data$Sub_metering_2, 
+     col = "red")
+lines(x = data$Datetime, 
+     y = data$Sub_metering_3, 
+     col = "blue")
+legend("topright", 
+       legend = c("Sub_metering_1","Sub_metering_2","Sub_metering_3"),
+       lwd = c(2,2),
+       col =c("black","red","blue"),
+       bty = "n")
+dev.off()
+```
+
+# Fourth plot
+
+It is the final challenge. 4 plots. 2 of them we already plotted, so that should be easy. Let's get the other 2 right. Voltage over time and Global_reactive_power over time.
+
+```{r plot4}
+par(mfrow = c(2,2)) #Set device to expect 2x2 matrix of plots
+#Top left
+plot(x = data$Datetime, 
+     y = data$Global_active_power, 
+     type = 'l', 
+     ylab = "Global Active Power",
+     xlab = "")
+#Top right
+plot(x = data$Datetime, 
+     y = data$Voltage, 
+     type = 'l', 
+     ylab = "Voltage",
+     xlab = "datetime")
+#Botton left
+plot(x = data$Datetime, 
+     y = data$Sub_metering_1, 
+     type = "l",
+     col = "black",
+     xlab = "",
+     ylab = "Energy sub metering")
+lines(x = data$Datetime, 
+     y = data$Sub_metering_2, 
+     col = "red")
+lines(x = data$Datetime, 
+     y = data$Sub_metering_3, 
+     col = "blue")
+legend("topright", 
+       legend = c("Sub_metering_1","Sub_metering_2","Sub_metering_3"),
+       lwd = c(2,2),
+       col =c("black","red","blue"),
+       bty = "n")
+#Bottom right
+plot(x = data$Datetime, 
+     y = data$Global_reactive_power, 
+     type = 'l', 
+     ylab = "Global_reactive_power",
+     xlab = "datetime")
+```
+
+Piece of cake. Now saving it
+
+```{R save_plot4}
+png(filename = 'plot4.png', width = 480, height = 480, bg = NA)
+par(mfrow = c(2,2))
+#Top left
+plot(x = data$Datetime, 
+     y = data$Global_active_power, 
+     type = 'l', 
+     ylab = "Global Active Power",
+     xlab = "")
+#Top right
+plot(x = data$Datetime, 
+     y = data$Voltage, 
+     type = 'l', 
+     ylab = "Voltage",
+     xlab = "datetime")
+#Botton left
+plot(x = data$Datetime, 
+     y = data$Sub_metering_1, 
+     type = "l",
+     col = "black",
+     xlab = "",
+     ylab = "Energy sub metering")
+lines(x = data$Datetime, 
+     y = data$Sub_metering_2, 
+     col = "red")
+lines(x = data$Datetime, 
+     y = data$Sub_metering_3, 
+     col = "blue")
+legend("topright", 
+       legend = c("Sub_metering_1","Sub_metering_2","Sub_metering_3"),
+       lwd = c(2,2),
+       col =c("black","red","blue"),
+       bty = "n")
+#Bottom right
+plot(x = data$Datetime, 
+     y = data$Global_reactive_power, 
+     type = 'l', 
+     ylab = "Global_reactive_power",
+     xlab = "datetime")
+dev.off()
+```
+
+That is all folks!
