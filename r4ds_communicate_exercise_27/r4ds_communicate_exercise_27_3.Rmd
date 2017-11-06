@@ -1,0 +1,28 @@
+---
+title: "My awesome CV"
+author: "Caio Costa"
+date: "11/2/2017"
+output: 
+  pdf_document: default
+  html_document: default
+  word_document: default
+---
+
+> "When I'm sad, I stop being sad and be awesome instead."
+- Stinson, Barney
+
+# Education
+
+* B.S. in Being Awesome from North Carolina School of Awesomeness[^1] **2014**
+
+***
+
+# Employment
+
+* Chief Awesomeness Officer  **2014-Present**
+  * The Awesome company
+    * Responsible for all awesome tasks in the company
+    * Increased Awesomeness level by 15%, by rolling-out the "Be Awesome" initiative, where we incentivized every employee to be awesome
+
+
+[^1]: Not an actual school

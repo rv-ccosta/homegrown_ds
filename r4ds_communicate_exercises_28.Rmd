@@ -1,0 +1,202 @@
+---
+title: "Data Science Accelerator - Month 2 Week 2"
+author: "Caio Costa"
+date: "11/5/2017"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(ggplot2)
+library(forcats)
+library(tidyverse)
+library(lubridate)
+df <- tibble(
+  x = rnorm(10000),
+  y = rnorm(10000)
+)
+```
+
+# Exercise 28.2.1.1
+
+Create one plot on the fuel economy data with customised title, subtitle, caption, x, y, and colour labels.
+
+```{r plot}
+ggplot(mpg, aes(displ, cty)) +
+  geom_point(aes(color = as.factor(cyl))) +
+  labs(title = "More cylinders, more volume, more consumption",
+       subtitle = "After 4 L, consumption does not change",
+       x = "Engine displacement (L)",
+       y = "City consumption (mpg)",
+       colour = "Number of cylinders",
+       caption = "Data from fueleconomy.gov")
+```
+
+# Exercise 28.2.1.2
+
+The geom_smooth() is somewhat misleading because the hwy for large engines is skewed upwards due to the inclusion of lightweight sports cars with big engines. Use your modelling tools to fit and display a better model.
+
+```{r modelling}
+ggplot(mpg, aes(displ, hwy)) +
+  geom_point(aes(color = as.factor(class))) +
+  geom_smooth(method = "lm") +
+  labs(title = "More volume, more consumption",
+       subtitle = "With the clear exception of sports car with big engines",
+       x = "Engine displacement (L)",
+       y = "Highway consumption (mpg)",
+       colour = "Car type",
+       caption = "Data from fueleconomy.gov")
+```
+
+Simplicity is king. Those sports car are not outliers enough to skew a linear model enough
+
+# Exercise 28.2.1.3
+
+Take an exploratory graphic that you’ve created in the last month, and add informative titles to make it easier for others to understand.
+
+```{r make_it_better}
+#Hey Jude, don't make it bad
+ggplot(gss_cat, aes(tvhours)) +
+  #Take a sad chart
+  geom_bar() +
+  #And make it better
+  labs(title = "Average household watches 1-3 hours of TV per day",
+         subtitle = "Nevertheless, some households seems to never turn it off",
+         x = "Number of TV hours per day",
+         y = "Number of households")
+```
+
+# Exercise 28.3.1.1
+
+Use geom_text() with infinite positions to place text at the four corners of the plot.
+
+```{r infinity}
+label <- tibble(
+  displ = c(Inf,Inf,-Inf,-Inf),
+  hwy = c(Inf,-Inf,Inf,-Inf),
+  label = c("a","b","c","d")
+)
+
+ggplot(mpg, aes(displ, hwy)) +
+  geom_point() +
+  geom_text(aes(label = label), data = label, vjust = c("top","bottom","top","bottom"), hjust = c("right","right","left","left"))
+
+```
+
+# Exercise 28.3.1.2
+
+Read the documentation for annotate(). How can you use it to add a text label to a plot without having to create a tibble?
+
+Like this:
+
+```{r annotating}
+ggplot(mpg, aes(displ, hwy)) +
+  geom_point() +
+  annotate("text", x = 6, y = 40, label = "Message here")
+
+```
+
+# Exercise 28.3.1.3
+
+How do labels with geom_text() interact with faceting? How can you add a label to a single facet? How can you put a different label in each facet? (Hint: think about the underlying data.)
+
+Fairly simple, need to put the mark the labels right.
+
+```{r facet}
+label <- tibble(
+  hwy = c(40,40),
+  displ = c(4,4),
+  year = c(1999,2008),
+  label = c("Old cars", "New cars")
+)
+ggplot(mpg, aes(displ, hwy)) +
+  geom_point() +
+  facet_grid(.~ year) +
+  geom_text(aes(label = label), data = label)
+
+```
+
+# Exercise 28.3.1.4
+
+What arguments to geom_label() control the appearance of the background box?
+
+The arguments label.padding, label.r and label.size controls the padding, rounded corner and border size. The fill aesthetic control the background color.
+
+# Exercise 28.3.1.5
+
+What are the four arguments to arrow()? How do they work? Create a series of plots that demonstrate the most important options.
+
+* angle - controls the angle of the arrow head
+* length - length of the arrow head
+* ends - in which end of the line should draw arrow head, "first", "last", "both"
+* type - "open" or "closed", to tell if arrow head should be a closed triangle
+
+```{r arrow}
+ggplot(mpg, aes(displ, hwy)) +
+  geom_point() +
+  #Closed triangle, big head arrow
+  geom_segment(aes(x = 4, y = 30, xend = 5.5, yend = 40), arrow = arrow(angle = 30, length = unit(0.25, "inches"), ends = "first", type = "closed")) +
+  #Open head, small, both ends arrow
+  geom_segment(aes(x = 6, y = 30, xend = 7.5, yend = 40), arrow = arrow(angle = 15, length = unit(0.15, "inches"), ends = "both", type = "open"))
+```
+
+# Exercise 28.4.4.1
+
+Why doesn’t the following code override the default scale?
+
+Because scale_colour_gradient override the "colour" option (which controls the border color), not the "fill" (which control the color inside)
+
+```{r override}
+ggplot(df, aes(x, y)) +
+  geom_hex(colour = "black") +
+  scale_fill_gradient(low = "white", high = "red") +
+  coord_fixed()
+```
+
+# Exercise 28.4.4.2
+
+What is the first argument to every scale? How does it compare to labs()?
+
+You can pass arguments in whichever order you please. But officially, the first argument is name, which is the name of the scale and used as axis or legend title.
+
+labs() do not have a formal first argument. You can pass an aes() or directly refer to "title", "subtitle" or others.
+
+# Exercise 28.4.4.3
+
+Change the display of the presidential terms by:
+
+* Combining the two variants shown above.
+* Improving the display of the y axis.
+* Labelling each term with the name of the president.
+* Adding informative plot labels.
+* Placing breaks every 4 years (this is trickier than it seems!).
+
+```{r presidentail}
+presidential <- presidential %>%
+  mutate(id = 33 + row_number())
+#separate mutate from ggplot so we can use the id
+ggplot(presidential, aes(start, id, colour = party)) +
+  geom_point() +
+  geom_segment(aes(xend = end, yend = id)) +
+  scale_colour_manual(values = c(Republican = "red", Democratic = "blue")) +
+  # breaking every 4 years and properly labeling
+  scale_x_date("Year", breaks = seq(ymd('1953-01-01'),ymd('2013-01-01'),"4 years"), date_labels = "'%y") +
+  # breaking on each president
+  scale_y_continuous(NULL, breaks = presidential$id, labels = NULL) +
+  # naming the presidents close to their terms
+  geom_text(aes(label = name), hjust = 0, nudge_y = 0.5) +
+  # labeling the chart
+  labs(title = "Presidential terms since 1954",
+       legend = "Party")
+    
+```
+
+# Exercise 28.4.4.4
+
+Use override.aes to make the legend on the following plot easier to see.
+
+```{r legend}
+ggplot(diamonds, aes(carat, price)) +
+  geom_point(aes(colour = cut), alpha = 1/20) +
+  guides(colour = guide_legend(override.aes = list(alpha = NA)))
+```
