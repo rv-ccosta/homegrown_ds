@@ -1,0 +1,144 @@
+---
+title: "Month 3 Week 2 Mini project"
+author: "Caio Costa"
+date: "12/10/2017"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(lubridate)
+```
+
+## Loading data
+
+```{r loading}
+download.file("https://d396qusza40orc.cloudfront.net/repdata%2Fdata%2Factivity.zip","data.zip", quiet = TRUE)
+unzip("data.zip")
+df <- as.tibble(read.csv("activity.csv"))
+df <- df %>% mutate(date = ymd(date))
+```
+
+## Mean of steps
+
+Piece of cake
+
+```{r mean}
+steps_by_day <- df %>%
+  filter(!is.na(steps)) %>%
+  group_by(date) %>%
+  summarize(steps = sum(steps))
+hist(steps_by_day$steps, 
+     xlab = "Number of steps",
+     main = "Histogram of steps taken by day")
+print(paste("Mean: ",mean(steps_by_day$steps)))
+print(paste("Median: ",median(steps_by_day$steps)))
+```
+
+## Time series
+
+```{r timeseries}
+time_series_data <- df %>%
+  group_by(interval) %>%
+  summarize(steps = mean(steps, na.rm = TRUE))
+time_series_data %>%
+  ggplot(aes(interval, steps)) +
+  geom_line()
+max_value = max(time_series_data$steps)
+max_interval = filter(time_series_data, steps == max_value)$interval
+print(paste("Max average is: ",max_value))
+print(paste("Which occurs on interval: ",max_interval," - ", max_interval+5))
+```
+
+Between 8:35 and 8:40. Guess people walk more just after waking up
+
+## Dealing with NAs
+
+Let's see how many we have.
+
+```{r manyNAs}
+df %>%
+  filter(is.na(steps)) %>%
+  nrow
+```
+
+2304 out of 17468. That is a lot.
+
+The strategy to fill NAs will be straight forward. Treat them all as 0.
+
+Wait, no, that may be a terrible idea. We have no idea what cause NAs.
+
+Let's check where those NAs are
+
+Let's check where they are.
+
+```{r whereNAs}
+df %>%
+  filter(is.na(steps)) %>%
+  ggplot(aes(x = date)) + geom_bar()
+```
+
+Wow! We have entire days of missing data.
+
+Let's think rationally. Average of the day. That would make sense, except we are missing entire day of data
+
+Average of that interval. Sounds like a better idea. It won't distort the interval distribution much. But all those dates with missing data will have the exact same values, which will match the overall average. So we can expect a huge spike on the histogram where the average is. Plus, a big chance the median will match the mean, since we are adding so many values right there. Mean will remain unchanged, as we are replacing NAs with the exact average day.
+
+```{r filling_NAs}
+means <- df %>%
+  group_by(interval) %>%
+  summarize(mean_steps = mean(steps, na.rm = TRUE))
+df2 <- df %>%
+  left_join(means, by = c("interval" = "interval")) %>%
+  mutate(steps = ifelse(is.na(steps),mean_steps,steps)) %>%
+  select(-mean_steps)
+```
+
+Let's replot the histogram
+
+```{r histogram_new}
+steps_by_day2 <- df2 %>%
+  filter(!is.na(steps)) %>%
+  group_by(date) %>%
+  summarize(steps = sum(steps))
+hist(steps_by_day2$steps, 
+     xlab = "Number of steps",
+     main = "Histogram of steps taken by day")
+print(paste("Mean: ",mean(steps_by_day2$steps)))
+print(paste("Median: ",median(steps_by_day2$steps)))
+```
+
+There we go. Huge spike on average bin. Average remain unchanged. Median equals average. All as expected. Of course I wrote those predictions after the fact, so not that impressive
+
+## Weekday vs Weekend
+
+Let's see now if weekends and weekdays are different.
+
+```{r weekend}
+time_series_data_weekend <- df %>%
+  mutate(weekend = weekdays(date) %in% c("Sunday","Saturday")) %>%
+  group_by(interval, weekend) %>%
+  summarize(steps = mean(steps, na.rm = TRUE))
+time_series_data_weekend %>%
+  ggplot(aes(interval, steps)) +
+  geom_line(aes(color = weekend))
+
+```
+
+Look at that. People waking up later on Weekends. That makes sense. They seem to be more active during the day, though. Also more active later at night, around 8pm.
+
+While during the week they seem to walk when they wake up and go to work, when the go grab lunch, when they make a break at 3pm, when they go home in the end of the day.
+
+During weekends, they wake up later, do not make that may steps (as a weekday), but then they don't seem to stop. Many walking activities during the day. Waling more (than weekday) on lunch time (maybe going somewhere further?), higher level during the afternoon, additional peak at 8pm (coming back from fun activity?)
+
+They also seem more active in general on weekend. Let's take a final look on averages
+
+```{r week_avg}
+df %>%
+  mutate(weekend = weekdays(date) %in% c("Sunday","Saturday")) %>%
+  group_by(weekend) %>%
+  summarize(steps = mean(steps, na.rm = TRUE)*288) #288 5 minutes interval per day
+```
+
+There we are. People walk more on weekends. 12,406 steps per day against 10,177.
